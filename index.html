@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paper Boats</title>
+<meta name="description" content="A quiet game for two. Hide your boats on the page and find your friend's.">
+<style>
+@font-face { font-family: "Courier Prime"; src: url("CourierPrime.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "Courier Prime"; src: url("CourierPrime-Bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+:root {
+  --paper: #f8f6f1; --ink: #1c1b19; --soft: #6e6b64; --hair: #d9d5cb; --tint: #ebe7dd; --ribbon: #b3261e; --ribbon-tint: #f1dbd7;
+}
+* { box-sizing: border-box; }
+html { background: var(--paper); }
+body {
+  margin: 0; min-height: 100dvh; background: var(--paper); color: var(--ink); overflow-x: hidden;
+  font: 16px/1.5 "Courier Prime", "Courier New", Courier, monospace;
+}
+main { max-width: 860px; margin: 0 auto; padding: 40px 20px 56px; }
+h1, h2 { font-weight: 400; margin: 0; }
+h1 { font-size: clamp(38px, 9vw, 56px); line-height: 1.1; letter-spacing: -.02em; }
+h1::after { content: ""; display: inline-block; width: .5em; height: .08em; margin-left: .1em; background: var(--ribbon); animation: blink 1.2s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+h2 { font-size: 26px; line-height: 1.2; letter-spacing: -.01em; }
+p { margin: 0; color: var(--soft); }
+.screen { display: none; }
+.screen.on { display: block; }
+.stack { max-width: 400px; margin: 14vh auto 0; display: grid; gap: 34px; }
+.stack > div { display: grid; gap: 10px; }
+.card { display: grid; gap: 14px; }
+.stack > .card + .card, .rule { border-top: 1px solid var(--hair); padding-top: 28px; }
+label { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--soft); display: grid; gap: 4px; }
+input {
+  width: 100%; padding: 8px 0; font: inherit; font-size: 18px; letter-spacing: 0; text-transform: none; color: var(--ink);
+  background: none; border: 0; border-bottom: 1px solid var(--ink); border-radius: 0; outline: none;
+}
+input::placeholder { color: #b0aca2; }
+input:focus { border-bottom-width: 2px; margin-bottom: -1px; }
+input#codeIn { text-transform: uppercase; letter-spacing: .08em; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.btn {
+  padding: 11px 18px; border: 1px solid var(--ink); border-radius: 0; background: none; color: var(--ink);
+  font-size: 13px; letter-spacing: .1em; text-transform: uppercase; transition: background .15s, color .15s;
+}
+.btn:hover:not(:disabled), .btn.main { background: var(--ink); color: var(--paper); }
+.btn.main:hover:not(:disabled) { background: #3a3834; }
+.btn:disabled { opacity: .35; cursor: default; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row .grow { flex: 1 1 auto; }
+.err { color: var(--ribbon); min-height: 1.5em; font-size: 14px; }
+.code { font-size: clamp(38px, 11vw, 52px); line-height: 1.1; text-align: center; padding: 14px 0; letter-spacing: .04em; user-select: all; }
+.pulse { animation: pulse 2.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .5; } }
+.top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--ink); margin-bottom: 18px; }
+.side { display: flex; gap: 16px; align-items: center; font-size: 13px; color: var(--soft); }
+.link { background: none; border: 0; padding: 2px 0; color: var(--soft); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+.dot { display: inline-block; width: 6px; height: 6px; background: var(--ink); margin-right: 8px; vertical-align: 1px; }
+.dot.off { background: var(--ribbon); }
+
+.boards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 44px; align-items: start; }
+.boards.place { grid-template-columns: minmax(0, 1fr) 270px; }
+.boardwrap { display: grid; gap: 28px; min-width: 0; padding-left: 20px; }
+.name { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; color: var(--soft); margin-left: -20px; }
+.name b { font-weight: 400; font-size: 16px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.name span { white-space: nowrap; }
+.board {
+  position: relative; display: grid; grid-template-columns: repeat(9, 1fr); width: 100%; aspect-ratio: 1;
+  border: 1px solid var(--hair); container-type: inline-size; isolation: isolate;
+}
+.board.live { outline: 1px solid var(--ink); outline-offset: -1px; }
+.cell { position: relative; padding: 0; border: 0; background: none; min-width: 0; aspect-ratio: 1; box-shadow: inset 0 0 0 .5px var(--hair); }
+.cell:disabled { cursor: default; }
+.board.live .cell:not(:disabled):hover, .cell:focus-visible { background: var(--tint); outline: none; }
+.cell.preview { background: var(--tint); }
+.cell.bad { background: var(--ribbon-tint); }
+.tag { position: absolute; font-size: 12px; line-height: 1; color: var(--soft); pointer-events: none; }
+.tag.col { top: -18px; left: 50%; transform: translateX(-50%); }
+.tag.row { left: -18px; top: 50%; transform: translateY(-50%); }
+.cell.miss::after, .cell.hit::after { position: absolute; inset: 0; display: grid; place-items: center; line-height: 1; z-index: 2; }
+.cell.miss::after { content: "·"; font-size: 8cqw; color: var(--soft); }
+.cell.hit::after { content: "×"; font-size: 9cqw; font-weight: 700; color: var(--ribbon); }
+.cell.new::after { animation: strike .12s steps(2); }
+@keyframes strike { from { transform: translateY(-14%); opacity: .4; } }
+.boat {
+  position: absolute; left: calc(var(--x) * 100% / 9); top: calc(var(--y) * 100% / 9);
+  width: calc(var(--w) * 100% / 9); height: calc(var(--h) * 100% / 9); padding: 3px; pointer-events: none; z-index: 1;
+}
+.boat::before { content: ""; display: block; width: 100%; height: 100%; background: var(--tint); border: 1px solid var(--ink); }
+.boat.sunk::before { background: var(--ribbon-tint); border-color: var(--ribbon); }
+.boat.ghost::before { background: none; border: 1px dashed var(--soft); }
+
+.tray { display: grid; gap: 0; align-content: start; }
+#tray { border-top: 1px solid var(--hair); margin-bottom: 16px; }
+#tray button {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 2px; background: none;
+  border: 0; border-bottom: 1px solid var(--hair); color: var(--ink); text-align: left;
+}
+#tray button.sel { font-weight: 700; }
+#tray button.done { color: var(--soft); }
+.pips { display: flex; gap: 3px; }
+.pips i { width: 8px; height: 8px; border: 1px solid currentColor; }
+#tray .sel .pips i { background: currentColor; }
+.tray .row, #readyBtn { margin-bottom: 8px; }
+#readyBtn { width: 100%; }
+#placeNote { font-size: 14px; margin-top: 8px; }
+.status { margin: 0 0 30px; min-height: 26px; font-size: 16px; color: var(--soft); }
+.status.mine { color: var(--ink); }
+.status.lost { color: var(--ribbon); }
+#end { position: fixed; inset: 0; display: none; place-items: center; padding: 20px; background: #f8f6f1e8; z-index: 5; }
+#end.on { display: grid; }
+#end .card { max-width: 340px; width: 100%; text-align: center; background: var(--paper); border: 1px solid var(--ink); padding: 30px 26px; }
+@media (max-width: 720px) {
+  main { padding: 24px 16px 40px; }
+  .boards, .boards.place { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+  .stack { margin-top: 8vh; }
+  .boardwrap.mine { order: 2; max-width: 72%; justify-self: center; width: 100%; }
+  .boards.place .boardwrap.mine { max-width: 100%; order: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <section class="screen on" id="home">
+    <div class="stack">
+      <div>
+        <h1>Paper Boats</h1>
+        <p>A quiet game for two. Hide your boats on the page, then find your friend's.</p>
+      </div>
+      <div class="card">
+        <label>Your name <input id="nameIn" maxlength="16" autocomplete="off" placeholder="Type your name"></label>
+        <button class="btn main" id="hostBtn">Start a room</button>
+      </div>
+      <div class="card">
+        <label>Room code <input id="codeIn" maxlength="12" autocomplete="off" placeholder="PEN-42"></label>
+        <button class="btn" id="joinBtn">Join your friend</button>
+        <p class="err" id="homeErr" role="alert"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" id="wait">
+    <div class="stack">
+      <div>
+        <h2 id="waitTitle">Your room is ready</h2>
+        <p>Send this code to your friend.</p>
+      </div>
+      <div class="card">
+        <div class="code" id="codeOut"></div>
+        <button class="btn" id="copyBtn">Copy invite link</button>
+      </div>
+      <p class="pulse" id="waitNote">Waiting for your friend to arrive…</p>
+      <button class="link" data-leave>Leave</button>
+    </div>
+  </section>
+
+  <section class="screen" id="place">
+    <div class="top"><h2>Hide your boats</h2><div class="side" data-conn></div></div>
+    <div class="boards place">
+      <div class="boardwrap mine"><span></span><div class="board" id="placeBoard"></div></div>
+      <div class="tray">
+        <div class="tray" id="tray"></div>
+        <div class="row">
+          <button class="btn grow" id="turnBtn">Turn boat</button>
+          <button class="btn grow" id="scatterBtn">Scatter</button>
+        </div>
+        <button class="btn main" id="readyBtn" disabled>Ready</button>
+        <p id="placeNote"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" id="play">
+    <div class="top"><h2>Paper Boats</h2><div class="side"><span data-conn></span><button class="link" id="soundBtn"></button></div></div>
+    <p class="status" id="status" role="status"></p>
+    <div class="boards">
+      <div class="boardwrap">
+        <div class="name"><b id="foeName"></b><span id="foeLeft"></span></div>
+        <div class="board" id="foeBoard"></div>
+      </div>
+      <div class="boardwrap mine">
+        <div class="name"><b>Your page</b><span id="myLeft"></span></div>
+        <div class="board" id="myBoard"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="end" role="dialog" aria-modal="true" aria-labelledby="endTitle">
+  <div class="card">
+    <h2 id="endTitle"></h2>
+    <p id="endNote"></p>
+    <button class="btn main" id="againBtn">Play again</button>
+    <button class="link" id="lookBtn">Look at the page</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
